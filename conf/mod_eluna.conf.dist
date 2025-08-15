@@ -40,7 +40,7 @@
 
 Eluna.Enabled = true
 Eluna.TraceBack = false
-Eluna.ScriptPath = "lua_scripts"
+Eluna.ScriptPath = "/home/acore/wotlk/run/bin/lua_scripts"
 Eluna.PlayerAnnounceReload = false
 Eluna.RequirePaths = ""
 Eluna.RequireCPaths = ""
