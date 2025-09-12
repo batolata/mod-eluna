@@ -14,7 +14,7 @@
 using namespace Hooks;
 
 #define START_HOOK(EVENT) \
-    if (!IsEnabled())\
+    if (!ElunaConfig::GetInstance().IsElunaEnabled())\
         return;\
     auto key = EventKey<PlayerEvents>(EVENT);\
     if (!PlayerEventBindings->HasBindingsFor(key))\
@@ -22,7 +22,7 @@ using namespace Hooks;
     LOCK_ELUNA
 
 #define START_HOOK_WITH_RETVAL(EVENT, RETVAL) \
-    if (!IsEnabled())\
+    if (!ElunaConfig::GetInstance().IsElunaEnabled())\
         return RETVAL;\
     auto key = EventKey<PlayerEvents>(EVENT);\
     if (!PlayerEventBindings->HasBindingsFor(key))\
@@ -754,10 +754,17 @@ void Eluna::OnPlayerUpdateSkill(Player* player, uint32 skill_id, uint32 value, u
     CallAllFunctions(PlayerEventBindings, key);
 }
 
-
 bool Eluna::CanPlayerResurrect(Player* player)
 {
     START_HOOK_WITH_RETVAL(PLAYER_EVENT_ON_CAN_RESURRECT, true);
     Push(player);
     return CallAllFunctionsBool(PlayerEventBindings, key);
+}
+
+void Eluna::OnPlayerQuestAccept(Player* player, Quest const* quest)
+{
+    START_HOOK(PLAYER_EVENT_ON_QUEST_ACCEPT);
+    Push(player);
+    Push(quest);
+    CallAllFunctions(PlayerEventBindings, key);
 }

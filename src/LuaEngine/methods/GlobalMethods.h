@@ -56,6 +56,49 @@ namespace LuaGlobalFunctions
     }
 
     /**
+     * Returns config value as a string.
+     *
+     * @param string name : name of the value
+     * @return string value
+     */
+    int GetConfigValue(lua_State* L)
+    {
+        const char* key = Eluna::CHECKVAL<const char*>(L, 1);
+        if (!key) return 0;
+        
+        std::string val = sConfigMgr->GetOption<std::string>(key, "", false);
+
+        if (val.empty())
+        {
+            Eluna::Push(L, val);
+            return 1;
+        }
+
+        std::string lower = val;
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+        
+        if (lower == "true")
+        {
+            Eluna::Push(L, true);
+            return 1;
+        }
+        else if (lower == "false")
+        {
+            Eluna::Push(L, false);
+            return 1;
+        }
+        
+        auto intVal = Acore::StringTo<uint32>(val);
+        if (intVal) {
+            Eluna::Push(L, *intVal);
+            return 1;
+        }
+        
+        Eluna::Push(L, val);
+        return 1;
+    }
+
+    /**
      * Returns emulator .conf RealmID
      *
      * - for MaNGOS returns the realmID as it is stored in the core.
@@ -732,6 +775,10 @@ namespace LuaGlobalFunctions
      *     PLAYER_EVENT_ON_BG_DESERTION            =     57,       // (event, player, type)
      *     PLAYER_EVENT_ON_PET_KILL                =     58,       // (event, player, killer)
      *     PLAYER_EVENT_ON_CAN_RESURRECT           =     59,       // (event, player)
+     *     PLAYER_EVENT_ON_CAN_UPDATE_SKILL        =     60,       // (event, player, skill_id) -- Can return true or false
+     *     PLAYER_EVENT_ON_BEFORE_UPDATE_SKILL     =     61,       // (event, player, skill_id, value, max, step) -- Can return new amount
+     *     PLAYER_EVENT_ON_UPDATE_SKILL            =     62,       // (event, player, skill_id, value, max, step, new_value)
+     *     PLAYER_EVENT_ON_QUEST_ACCEPT            =     63,       // (event, player, quest)
      * };
      * </pre>
      *

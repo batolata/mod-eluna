@@ -23,8 +23,14 @@
 #include "HttpManager.h"
 #include "EventEmitter.h"
 #include "TicketMgr.h"
+#include "LootMgr.h"
+#include "ElunaFileWatcher.h"
+#include "ElunaConfig.h"
 #include <mutex>
 #include <memory>
+#include <vector>
+#include <ctime>
+#include <unordered_map>
 
 extern "C"
 {
@@ -72,12 +78,28 @@ template<typename T> struct EventKey;
 template<typename T> struct EntryKey;
 template<typename T> struct UniqueObjectKey;
 
+// Type definition for bytecode buffer
+typedef std::vector<uint8> BytecodeBuffer;
+
+// Global bytecode cache entry
+struct GlobalCacheEntry
+{
+    BytecodeBuffer bytecode;
+    std::time_t last_modified;
+    std::string filepath;
+    
+    GlobalCacheEntry() : last_modified(0) {}
+    GlobalCacheEntry(const BytecodeBuffer& code, std::time_t modTime, const std::string& path)
+        : bytecode(code), last_modified(modTime), filepath(path) {}
+};
+
 struct LuaScript
 {
     std::string fileext;
     std::string filename;
     std::string filepath;
     std::string modulepath;
+    LuaScript() {}
 };
 
 #define ELUNA_STATE_PTR "Eluna State Ptr"
@@ -100,6 +122,7 @@ private:
     static bool reload;
     static bool initialized;
     static LockType lock;
+    static std::unique_ptr<ElunaFileWatcher> fileWatcher;
 
     // Lua script locations
     static ScriptList lua_scripts;
@@ -123,7 +146,6 @@ private:
     // When a hook pushes arguments to be passed to event handlers,
     //  this is used to keep track of how many arguments were pushed.
     uint8 push_counter;
-    bool enabled;
 
     // Map from instance ID -> Lua table ref
     std::unordered_map<uint32, int> instanceDataRefs;
@@ -149,6 +171,18 @@ private:
     static void LoadScriptPaths();
     static void GetScripts(std::string path);
     static void AddScriptPath(std::string filename, const std::string& fullpath);
+    static int LoadCompiledScript(lua_State* L, const std::string& filepath);
+    static std::time_t GetFileModTime(const std::string& filepath);
+    static std::time_t GetFileModTimeWithCache(const std::string& filepath);
+    
+    // Global cache management
+    static bool CompileScriptToGlobalCache(const std::string& filepath);
+    static bool CompileMoonScriptToGlobalCache(const std::string& filepath);
+    static int TryLoadFromGlobalCache(lua_State* L, const std::string& filepath);
+    static int LoadScriptWithCache(lua_State* L, const std::string& filepath, bool isMoonScript, uint32* compiledCount = nullptr, uint32* cachedCount = nullptr);
+    static void ClearGlobalCache();
+    static void ClearTimestampCache();
+    static size_t GetGlobalCacheSize();
 
     static int StackTrace(lua_State *_L);
     static void Report(lua_State* _L);
@@ -301,7 +335,6 @@ public:
 
     void RunScripts();
     bool ShouldReload() const { return reload; }
-    bool IsEnabled() const { return enabled && IsInitialized(); }
     bool HasLuaState() const { return L != NULL; }
     uint64 GetCallstackId() const { return callstackid; }
     int Register(lua_State* L, uint8 reg, uint32 entry, ObjectGuid guid, uint32 instanceId, uint32 event_id, int functionRef, uint32 shots);
@@ -457,6 +490,7 @@ public:
     void OnPlayerBeforeUpdateSkill(Player* player, uint32 skill_id, uint32& value, uint32 max, uint32 step);
     void OnPlayerUpdateSkill(Player* player, uint32 skill_id, uint32 value, uint32 max, uint32 step, uint32 new_value);
     bool CanPlayerResurrect(Player* player);
+    void OnPlayerQuestAccept(Player* player, Quest const* quest);
 
     /* Vehicle */
     void OnInstall(Vehicle* vehicle);
